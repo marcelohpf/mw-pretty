@@ -2,6 +2,23 @@ import re
 import json
 from urllib.request import urlopen
 
+class PageProcess:
+    def get_page(self,url):
+        """Use url open to return a http response if it is successful"""
+        http_response = urlopen(url)
+        if http_response.status != 200:
+            raise "Can't connect to %s" % url
+        return http_response
+
+    def get_content_page(self,url):
+        """Given a url, return the content of the page in a string
+           python format"""
+        page = self.get_page(url)
+        assert(page.status == 200)
+        content = page.read()
+        string_content = content.decode('utf-8')
+        return string_content
+        
 class GenerateData:
     """Fetch the data from matricula web for a giver course
        and save it in a file to generate the beautiful view"""
@@ -20,9 +37,10 @@ class GenerateData:
             file_output.write(jsonfy_data)
     data_course={123321:[232,3231,1231]}
 
-class Course:
+class Course(PageProcess):
     """Contains all information about the course, use get_discipline
        to obtain the data"""
+
     PATTER_CODES = r'[^#>](\d{6})'
     name = ''
     disciplines = []
@@ -35,9 +53,15 @@ class Course:
            2 - optatives
            3.. cicle chain"""
         assert(self.url != None)
-        page_course = urlopen(self.url).read()
+        page_course = self.get_content_page(self.url)
+        # TODO: Find a efficient way to split positions
         code_disciplines = re.findall(self.PATTER_CODES,page_course)
-    
+        return code_disciplines
+    def mount_disciplines(self):
+        codes = self.extract_codes()
+
 if __name__ == '__main__':
-    a = GenerateData(123)
+    a = GenerateData(6360)
     a.output_data()
+    b = Course(a.url_course)
+    print(b.extract_codes())
