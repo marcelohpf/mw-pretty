@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang='pt-br' ng-app='mw-pretty'>
+    <head>
+        <meta charset='utf-8'>
+        <script src="node_modules/angular/angular.min.js"></script>
+    </head>
+    <body>
+        <div ng-controller='b'>
+        <input type='text' ng-model='a'></input>
+        <span ng-bind='a'></span>
+        {{a}}
+        <script>
+        angular.module('mw-pretty',[])
+            .controller('b',function($scope){
+                $scope.a = "a";
+                $http
+                });
+        </script>
+    </body>
+</html>
