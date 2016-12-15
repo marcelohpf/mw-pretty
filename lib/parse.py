@@ -142,17 +142,29 @@ class Course(PageProcess):
             if code not in self.disciplines:
                 try:
                     self.disciplines[code] = Discipline(code)
-                    codes.extend(self.disciplines[code].pre_requisit)
+                    codes.extend(self.disciplines[code].pre_requirement)
                 except BaseException as e:
                     print(e)
         return self.disciplines
-    
+
+    # TODO: start a dfs with pre requisits to determine the level of discipline
+    def determine_levels(self):
+        for discipline in self.disciplines.values():
+            level = discipline.determine_level(self.disciplines)
+            print(discipline)
+            print(level)
+
+    def print_pre_requirements(self):
+        print(self.name)
+        for discipline in self.disciplines.values():
+            discipline.print_pre(self.disciplines,0)
     def __str__(self):
         strs = ""
         for code in self.disciplines:
             strs+= str(self.disciplines[code])
-            strs+=", "
+            strs+="\n"
         return strs
+
 
 class Discipline(PageProcess):
     """Store the all informations about the discipline, obtain their 
@@ -165,7 +177,7 @@ class Discipline(PageProcess):
         self.level = 0
         page = self.get_content_page(self.url_discipline)
         self.get_name(page)
-        self.get_pre_requisit(page)
+        self.get_pre_requirement(page)
 
     def get_name(self,page):
         """Find the full name off discipline, the name is after
@@ -178,29 +190,42 @@ class Discipline(PageProcess):
             raise BaseException('Name not found')
         return self.name
 
-    def get_pre_requisit(self,page):
+    def get_pre_requirement(self,page):
         """The list with pre-requisits of discipline
         """
         # TODO: The disciplinas has conditions E and OU
         regex = '\w{2,4}-(\d{6})'
-        self.pre_requisit = re.findall(regex,page)
-        if len(self.pre_requisit) == 0:
-            print("don't have pre-requiriment")
-        return self.pre_requisit
+        self.pre_requirement = re.findall(regex,page)
+        if len(self.pre_requirement) == 0:
+            print("don't have pre-requirement")
+        return self.pre_requirement
     
-    # TODO: determine the level of discipline if isn't
+    # TODO: split in obtain requirements level and update level of dicipline
     def determine_level(self,disciplines):
-        if self.level == 0:
-            self.update_level(disciplines)
+        level_max = 0
+        for code_requisit in self.pre_requirement:
+            # TODO: remove this when not exist page without data in disciplines
+            if code_requisit in disciplines:
+                next_discipline = disciplines[code_requisit]
+                level = -1
+                if next_discipline.level == 0:
+                    level = next_discipline.determine_level(disciplines)
+                level_max = max(level_max, level)
+        self.level = level_max+1
+        return self.level
 
-    # TODO: force a calculation of the level for this discipline
-    def update_level(self,disciplines):
-        return None
+    def print_pre(self,disciplines,level):
+        print("%s-%s %d"%(' '*level,self.code,level))
+        for code in self.pre_requirement:
+            disciplines[code].print_pre(disciplines,level+1)
 
     def __str__(self):
-        return "%s (%d)" % (self.name,self.level)
+        return "%s (%d) <%s>" % (self.name,self.level,self.url_discipline)
+
 
 if __name__ == '__main__':
     a = GenerateData(6360)
     b = Course(a.url_course)
-    print(b)
+    b.determine_levels()
+    b.print_pre_requirements()
+ #  print(b)
