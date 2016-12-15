@@ -4,6 +4,7 @@ from urllib.request import urlopen
 import json
 import os
 import re
+from mw_error import NoName
 
 class PageProcess:
     PATTERN_CLEAN = {'pattern': '\n|\t|\r',
@@ -139,25 +140,21 @@ class Course(PageProcess):
         # TODO: identify disciplines no more inexistents
         codes = self.extract_codes()
         for code in codes:
-            if code not in self.disciplines:
-                try:
-                    self.disciplines[code] = Discipline(code)
-                    codes.extend(self.disciplines[code].pre_requirement)
-                except BaseException as e:
-                    print(e)
+            discipline = Discipline(code)
+            discipline_requirements = discipline.get_requirements()
+            self.disciplines[code] = discipline
+            self.disciplines.update(discipline_requirements)
+                
         return self.disciplines
 
-    # TODO: start a dfs with pre requisits to determine the level of discipline
     def determine_levels(self):
         for discipline in self.disciplines.values():
-            level = discipline.determine_level(self.disciplines)
-            print(discipline)
-            print(level)
+            discipline.determine_level(self.disciplines)
 
     def print_pre_requirements(self):
-        print(self.name)
         for discipline in self.disciplines.values():
-            discipline.print_pre(self.disciplines,0)
+            discipline.print_pre(self.disciplines,1)
+
     def __str__(self):
         strs = ""
         for code in self.disciplines:
@@ -177,20 +174,20 @@ class Discipline(PageProcess):
         self.level = 0
         page = self.get_content_page(self.url_discipline)
         self.get_name(page)
-        self.get_pre_requirement(page)
+        self.get_codes_requirement(page)
 
     def get_name(self,page):
         """Find the full name off discipline, the name is after
         'Denominação', in same tr, but a different td in html content
         """
-        match_name = re.search('Denominação:</b> *</td> *<td> *([\w| |\d|-]+) *</td>',page)
+        match_name = re.search('Denominação:</b></td><td>([\w| |\d|-]+)</td>',page)
         if match_name is not None and len( match_name.groups()) == 1:
             self.name = match_name.groups()[0]
         else:
-            raise BaseException('Name not found')
+            raise NoName('Name not found for discipline %s' % self.code)
         return self.name
 
-    def get_pre_requirement(self,page):
+    def get_codes_requirement(self,page):
         """The list with pre-requisits of discipline
         """
         # TODO: The disciplinas has conditions E and OU
@@ -200,22 +197,37 @@ class Discipline(PageProcess):
             print("don't have pre-requirement")
         return self.pre_requirement
     
-    # TODO: split in obtain requirements level and update level of dicipline
+    def get_requirements(self):
+        """Obtain recursively the all pre requirements for the discipline"""
+        pre_disciplines = {}
+        excluded_codes = []
+        for code in self.pre_requirement:
+            try:
+                pre_disciplines[code] = Discipline(code)
+                pre_discipline = pre_disciplines[code].get_requirements()
+                pre_disciplines.update(pre_discipline)
+            except NoName as e:
+                print(e)
+                excluded_codes.append(code)
+        for excluded_code in excluded_codes:
+            self.pre_requirement.remove(excluded_code)
+        return pre_disciplines
+                
+
     def determine_level(self,disciplines):
+        """Execute a dfs to obtain the bigger level of discipline"""
         if self.level == 0:
             level_max=0
             for code_requisit in self.pre_requirement:
-                # TODO: remove this when not exist page without data in disciplines
-                if code_requisit in disciplines:
-                    next_discipline = disciplines[code_requisit]
-                    level = next_discipline.determine_level(disciplines)
-                    level_max = max(level_max, level)
+                next_discipline = disciplines[code_requisit]
+                level = next_discipline.determine_level(disciplines)
+                level_max = max(level_max, level)
             self.level = level_max+1
 
         return self.level
 
     def print_pre(self,disciplines,level):
-        print("%s-%s %d"%(' '*level,self.code,level))
+        print("%s-%s "%(' '*level,self.name))
         for code in self.pre_requirement:
             disciplines[code].print_pre(disciplines,level+1)
 
@@ -227,5 +239,7 @@ if __name__ == '__main__':
     a = GenerateData(6360)
     b = Course(a.url_course)
     b.determine_levels()
-    b.print_pre_requirements()
+    for d in b.disciplines.values():
+        print("(%d) %s %s"% (d.level,d.code,d.name))
+  #  b.print_pre_requirements()
  #  print(b)
