@@ -1,7 +1,7 @@
 import re
 import json
 from urllib.request import urlopen
-
+from pathlib import Path
 class PageProcess:
     PATTERN_CLEAN = {'pattern': '\n|\t|\r',
                     'repl': '',
@@ -9,6 +9,7 @@ class PageProcess:
     WITHOUT_SPACE = {'pattern': '> +<',
                      'repl': '><',
                      }
+    CACHE_DIR = "/tmp/mw-pretty"
     # TODO: make a cache with web pages and just verify the last date 
     # of change
     def get_page(self,url):
@@ -19,20 +20,46 @@ class PageProcess:
             raise BaseException("Can't connect to %s" % url)
         return http_response
 
+        
     def get_content_page(self,url):
         """Given a url, return the content of the page in a string
            python format"""
-        page = self.get_page(url)
-        assert(page.status == 200)
-        content = page.read()
-        string_content = content.decode('utf-8')
-        
-        # Remove spaces and enters and tabulations
-        string_clean = re.sub(string=string_content, **self.PATTERN_CLEAN)
-        string_content = re.sub(string=string_clean, **self.WITHOUT_SPACE)
+        string_content=""
+        if not self.has_chace(url):
+            page = self.get_page(url)
+            self.save_cache(url,string_content)
+        else:
+            string_content = load_page_cache(url)
         
         return string_content
         
+    def loag_page_url(self,page):
+        assert(page.status == 200)
+        content = page.read()
+        string_content = content.decode('utf-8')
+    
+        # Remove spaces and enters and tabulations
+        string_clean = re.sub(string=string_content, **self.PATTERN_CLEAN)
+        string_content = re.sub(string=string_clean, **self.WITHOUT_SPACE)
+
+        return string_content
+
+    def has_chace(self,url):
+        cache_file = Path(CACHE_DIR+str(url.__hash__()))
+        return cache_file.is_file()
+
+    def load_page_cache(self,url):
+        cache_file = CACHE_DIR+str(hash(url))
+        string_content = ""
+        with open(cache_file,'r') as cache:
+            string_content = cache.read()
+        return string_content
+
+    def save_cache(self,url,string_content):
+        cache_file = CACHE_DIR+str(hash(url))
+        with open(cache_file,'w') as cache:
+            cache.write(string_content)
+
 class GenerateData:
     """Fetch the data from matricula web for a giver course
        and save it in a file to generate the beautiful view"""
