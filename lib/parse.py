@@ -202,16 +202,16 @@ class Discipline(PageProcess):
     
     # TODO: split in obtain requirements level and update level of dicipline
     def determine_level(self,disciplines):
-        level_max = 0
-        for code_requisit in self.pre_requirement:
-            # TODO: remove this when not exist page without data in disciplines
-            if code_requisit in disciplines:
-                next_discipline = disciplines[code_requisit]
-                level = -1
-                if next_discipline.level == 0:
+        if self.level == 0:
+            level_max=0
+            for code_requisit in self.pre_requirement:
+                # TODO: remove this when not exist page without data in disciplines
+                if code_requisit in disciplines:
+                    next_discipline = disciplines[code_requisit]
                     level = next_discipline.determine_level(disciplines)
-                level_max = max(level_max, level)
-        self.level = level_max+1
+                    level_max = max(level_max, level)
+            self.level = level_max+1
+
         return self.level
 
     def print_pre(self,disciplines,level):
