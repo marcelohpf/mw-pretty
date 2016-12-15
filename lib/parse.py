@@ -1,7 +1,10 @@
-import re
-import json
-from urllib.request import urlopen
+from hashlib import sha256
 from pathlib import Path
+from urllib.request import urlopen
+import json
+import os
+import re
+
 class PageProcess:
     PATTERN_CLEAN = {'pattern': '\n|\t|\r',
                     'repl': '',
@@ -9,7 +12,8 @@ class PageProcess:
     WITHOUT_SPACE = {'pattern': '> +<',
                      'repl': '><',
                      }
-    CACHE_DIR = "/tmp/mw-pretty"
+    CACHE_DIR = b"/tmp/mw-pretty/"
+
     # TODO: make a cache with web pages and just verify the last date 
     # of change
     def get_page(self,url):
@@ -24,39 +28,63 @@ class PageProcess:
     def get_content_page(self,url):
         """Given a url, return the content of the page in a string
            python format"""
-        string_content=""
-        if not self.has_chace(url):
+        string_content = ""
+        if not self.has_cache(url):
+            print("Obtain page from web")
             page = self.get_page(url)
+            string_content = self.load_page_url(page)
             self.save_cache(url,string_content)
         else:
-            string_content = load_page_cache(url)
+            print("Obtain page from cache")
+            string_content = self.load_page_cache(url)
         
         return string_content
         
-    def loag_page_url(self,page):
+    def load_page_url(self,page):
+        """Load a content and remove the characters \\n \\t \\r and remove 
+           spaces between tags </>  <> from a http response object with status 
+           code 200."""
         assert(page.status == 200)
         content = page.read()
-        string_content = content.decode('utf-8')
+        content_decoded = content.decode('utf-8')
     
         # Remove spaces and enters and tabulations
-        string_clean = re.sub(string=string_content, **self.PATTERN_CLEAN)
-        string_content = re.sub(string=string_clean, **self.WITHOUT_SPACE)
+        content_clean = re.sub(string=content_decoded, **self.PATTERN_CLEAN)
+        string_content = re.sub(string=content_clean, **self.WITHOUT_SPACE)
 
         return string_content
 
-    def has_chace(self,url):
-        cache_file = Path(CACHE_DIR+str(url.__hash__()))
+    def has_cache(self,url):
+        """Only check if has a page in cache dir(/tmp/mw-pretty/)"""
+        self.create_cache_dir()
+        path = self.hash_url_path(url)
+        cache_file = Path(path)
+        print("Check cache in %s"%cache_file)
         return cache_file.is_file()
 
+    def hash_url_path(self,url):
+        """Return the hexa value using sha256 to a url"""
+        file_path = str.encode(url)
+        hash_function = sha256(file_path)
+        path = self.CACHE_DIR.decode()+hash_function.hexdigest()
+        return path
+
+    def create_cache_dir(self):
+        """Create the temporary dir to cache web pages"""
+        if not os.path.exists(self.CACHE_DIR):
+            os.mkdir(self.CACHE_DIR)
+        
     def load_page_cache(self,url):
-        cache_file = CACHE_DIR+str(hash(url))
+        """Load the content already processed from a cached file in tmp dir"""
+        cache_file = self.hash_url_path(url)
         string_content = ""
         with open(cache_file,'r') as cache:
             string_content = cache.read()
         return string_content
 
     def save_cache(self,url,string_content):
-        cache_file = CACHE_DIR+str(hash(url))
+        """Save a processed web page in cache"""
+        cache_file = self.hash_url_path(url)
         with open(cache_file,'w') as cache:
             cache.write(string_content)
 
