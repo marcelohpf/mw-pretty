@@ -1,10 +1,40 @@
 from hashlib import sha256
+from mw_error import NoName
 from pathlib import Path
 from urllib.request import urlopen
+
 import json
 import os
 import re
-from mw_error import NoName
+
+MW_PATH = "/tmp/mw-pretty/"
+
+class GenerateData:
+    """Fetch the data from matricula web for a giver course
+       and save it in a file to generate the beautiful view"""
+
+    BASE_URL = 'https://matriculaweb.unb.br/graduacao/curriculo.aspx?cod='
+    DATA_PATH = "/tmp/mw-pretty/data/"
+    def __init__(self,course_code):
+        assert(re.search(r'\D+',str(course_code)) is None)
+        self.code = str(course_code)
+        self.url_course = self.BASE_URL+self.code
+
+    def output_data(self):
+        """Write the content matched from matricula web to a file
+           with name 'code_of_course.json'"""
+        course = Course(self.url_course)
+        data_course = json.dumps(course, 
+                    default=lambda x: x.__dict__,
+                    sort_keys=True)
+
+        if not os.path.exists(MW_PATH):
+            os.mkdir(MW_PATH)
+        if not os.path.exists(self.DATA_PATH):
+            os.mkdir(self.DATA_PATH)
+        data_dir = self.DATA_PATH + "%s.json" % self.code
+        with open(data_dir,'w') as file_output:
+            file_output.write(data_course)
 
 class PageProcess:
     PATTERN_CLEAN = {'pattern': '\n|\t|\r',
@@ -13,7 +43,7 @@ class PageProcess:
     WITHOUT_SPACE = {'pattern': '> +<',
                      'repl': '><',
                      }
-    CACHE_DIR = b"/tmp/mw-pretty/"
+    CACHE_DIR = "/tmp/mw-pretty/cache/"
 
     # TODO: make a cache with web pages and just verify the last date 
     # of change
@@ -67,11 +97,13 @@ class PageProcess:
         """Return the hexa value using sha256 to a url"""
         file_path = str.encode(url)
         hash_function = sha256(file_path)
-        path = self.CACHE_DIR.decode()+hash_function.hexdigest()
+        path = self.CACHE_DIR+hash_function.hexdigest()
         return path
 
     def create_cache_dir(self):
         """Create the temporary dir to cache web pages"""
+        if not os.path.exists(MW_PATH):
+            os.mkdir(MW_PATH)
         if not os.path.exists(self.CACHE_DIR):
             os.mkdir(self.CACHE_DIR)
         
@@ -89,24 +121,6 @@ class PageProcess:
         with open(cache_file,'w') as cache:
             cache.write(string_content)
 
-class GenerateData:
-    """Fetch the data from matricula web for a giver course
-       and save it in a file to generate the beautiful view"""
-
-    BASE_URL = 'https://matriculaweb.unb.br/graduacao/curriculo.aspx?cod='
-
-    def __init__(self,course_code):
-        assert(re.search(r'\D+',str(course_code)) is None)
-        self.code = str(course_code)
-        self.url_course = self.BASE_URL+self.code
-
-    def output_data(self):
-        """Write the content matched from matricula web to a file
-           with name 'code_of_course.json'"""
-        jsonfy_data = json.dumps(self.data_course)
-        with open(self.code+'.json','w') as file_output:
-            file_output.write(jsonfy_data)
-    data_course={123321:[232,3231,1231]}
 
 class Course(PageProcess):
     """Contains all information about the course, use get_discipline
@@ -114,10 +128,11 @@ class Course(PageProcess):
 
     PATTER_CODES = r'[^#>](\d{6})'
     name = ''
-    disciplines = {}
     def __init__(self,url):
+        self.disciplines = {}
         self.url = url
         self.mount_disciplines()
+        self.determine_levels()
 
     def extract_codes(self):
         """Obtain the codes of disciplines
@@ -168,6 +183,7 @@ class Discipline(PageProcess):
     pre-requisites, name of discipline"""
 
     BASE_URL = 'https://matriculaweb.unb.br/graduacao/disciplina.aspx?cod='
+
     def __init__(self,code):
         self.code = code
         self.url_discipline = self.BASE_URL+self.code
@@ -229,17 +245,10 @@ class Discipline(PageProcess):
     def print_pre(self,disciplines,level):
         print("%s-%s "%(' '*level,self.name))
         for code in self.pre_requirement:
+            
             disciplines[code].print_pre(disciplines,level+1)
 
     def __str__(self):
         return "%s (%d) <%s>" % (self.name,self.level,self.url_discipline)
 
 
-if __name__ == '__main__':
-    a = GenerateData(6360)
-    b = Course(a.url_course)
-    b.determine_levels()
-    for d in b.disciplines.values():
-        print("(%d) %s %s"% (d.level,d.code,d.name))
-  #  b.print_pre_requirements()
- #  print(b)
