@@ -9,12 +9,14 @@ class PageProcess:
     WITHOUT_SPACE = {'pattern': '> +<',
                      'repl': '><',
                      }
+    # TODO: make a cache with web pages and just verify the last date 
+    # of change
     def get_page(self,url):
         """Use url open to return a http response if it is successful"""
         http_response = urlopen(url)
         print('Try get page: '+url)
         if http_response.status != 200:
-            raise "Can't connect to %s" % url
+            raise BaseException("Can't connect to %s" % url)
         return http_response
 
     def get_content_page(self,url):
@@ -79,17 +81,17 @@ class Course(PageProcess):
         """From the codes in the page of discipline, create the dictionary
         with disciplines, obtains inclusive the pre-requisite
         """
+        # TODO: identify disciplines no more inexistents
         codes = self.extract_codes()
         for code in codes:
             if code not in self.disciplines:
-                self.disciplines[code] = Discipline(code)
-                codes.extend(self.disciplines[code].pre_requisit)
+                try:
+                    self.disciplines[code] = Discipline(code)
+                    codes.extend(self.disciplines[code].pre_requisit)
+                except BaseException as e:
+                    print(e)
         return self.disciplines
-
-    # TODO: start a dfs with pre requisits to determine the level of discipline
-    def determine_levels(self):
-        return None
-
+    
     def __str__(self):
         strs = ""
         for code in self.disciplines:
@@ -98,6 +100,8 @@ class Course(PageProcess):
         return strs
 
 class Discipline(PageProcess):
+    """Store the all informations about the discipline, obtain their 
+    pre-requisites, name of discipline"""
 
     BASE_URL = 'https://matriculaweb.unb.br/graduacao/disciplina.aspx?cod='
     def __init__(self,code):
@@ -112,11 +116,11 @@ class Discipline(PageProcess):
         """Find the full name off discipline, the name is after
         'Denominação', in same tr, but a different td in html content
         """
-        match_name = re.search('Denominação:</b></td><td>([\w| |\d]+)</td>',page)
-        if match_name is not None and len( match_name.groups()) >=1:
+        match_name = re.search('Denominação:</b> *</td> *<td> *([\w| |\d|-]+) *</td>',page)
+        if match_name is not None and len( match_name.groups()) == 1:
             self.name = match_name.groups()[0]
         else:
-            raise 'Name not found'
+            raise BaseException('Name not found')
         return self.name
 
     def get_pre_requisit(self,page):
