@@ -26,6 +26,7 @@ class GenerateData:
         course = Course(self.url_course)
         data_course = json.dumps(course, 
                     default=lambda x: x.__dict__,
+                    ensure_ascii=False,
                     sort_keys=True)
 
         if not os.path.exists(MW_PATH):
@@ -152,7 +153,7 @@ class Course(PageProcess):
         """From the codes in the page of discipline, create the dictionary
         with disciplines, obtains inclusive the pre-requisite
         """
-        # TODO: identify disciplines no more inexistents
+        # TODO: identify disciplines inexistents
         codes = self.extract_codes()
         for code in codes:
             discipline = Discipline(code)
