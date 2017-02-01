@@ -96,6 +96,7 @@ init = function(){
     tree = d3.layout.tree().size([600,1000]);
     diagonal = d3.svg.diagonal().projection(function(d){return [d.y, d.x];});
     i = 0;
+    currentNode = treeData;
     update(treeData);
 }
 
@@ -135,7 +136,7 @@ updateNodes = function(nodes, source){
             d.children = d._children;
             d._children = null;
           }
-          update(d,treeData);
+          update(d,currentNode);
         });
 
     nodeEnter.append("text")
@@ -145,6 +146,7 @@ updateNodes = function(nodes, source){
         .attr("text-anchor","end")
         .text(function(d) { return "back"; })
         .on("click", function(d){ 
+          currentNode=d.parent;
           update(d.parent);
         });
     nodeEnter.append("text")
@@ -154,6 +156,7 @@ updateNodes = function(nodes, source){
         .attr("text-anchor","start")
         .text(function(d) { return "go"; })
         .on("click", function(d){ 
+          currentNode=d;
           update(d);
         });
         
