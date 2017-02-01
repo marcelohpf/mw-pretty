@@ -86,29 +86,104 @@ treeData = {
         ]
 };
 window.onload = function(){init();}
+
+/** Function when init
+*/
+currentNode = null;
 init = function(){
     svg = d3.select('#tree').append('svg').style('height','100%').style('width','100%').append('g').attr("transform", "translate(" + 100 + "," + 50 + ")");;
 
-    tree = d3.layout.tree().size([600,500]);
+    tree = d3.layout.tree().size([600,1000]);
     diagonal = d3.svg.diagonal().projection(function(d){return [d.y, d.x];});
     i = 0;
     update(treeData);
 }
-update = function(source){
-    nodes = tree.nodes(source);
-    links = tree.links(nodes);
 
-    node = svg.selectAll('g.node').data(nodes, function(d){ return d.id || (d.id = ++i);});
-    nodeEnter = node.enter().append('g').attr('class','node');
-    nodeEnter.append("text")
-        .attr("x", function(d) { return d.children || d._children ? -10 : 10; })
-        .attr("dy", ".35em")
-        .attr("text-anchor", function(d) { return d.children || d._children ? "end" : "start"; })
-        .text(function(d) { return d.name; })
-    node.attr("transform", function(d) {console.log(d); return "translate(" + d.y + "," + d.x + ")"; });
+/** Update function
+*/
+update = function(source,root){
+    
+    nodes = tree.nodes(root?root:source);
+    edges = tree.links(nodes);
+    updateNodes(nodes,source);
+    updateEdges(edges,source);
 
+    nodes.forEach(function(d){
+      d.x0=d.x;
+      d.y0=d.y;
+    });
 }
 
+updateNodes = function(nodes, source){
+    // Node update
+    node = svg.selectAll('g.node').data(nodes, function(d){ return d.id || (d.id = ++i);});
+
+    // Node enter
+    nodeEnter = node.enter().append('g')
+      .attr('class','node')
+      .attr("transform",function(d){ return "translate(" + source.y0 + "," + source.x0 + ")";});
+
+    nodeEnter.append("text")
+        .attr("x", 0)
+        .attr("y", -10)
+        .text(function(d) { return d.name; })
+        .on("click",function(d){
+          if(d.children){
+            d._children = d.children;
+            d.children=null;
+          } else {
+            d.children = d._children;
+            d._children = null;
+          }
+          update(d,treeData);
+        });
+
+    nodeEnter.append("text")
+        .style("cursor","pointer")
+        .attr("x", 10)
+        .attr("y",10)
+        .attr("text-anchor","end")
+        .text(function(d) { return "back"; })
+        .on("click", function(d){ 
+          update(d.parent);
+        });
+    nodeEnter.append("text")
+        .style("cursor","pointer")
+        .attr("x", 20)
+        .attr("y",10)
+        .attr("text-anchor","start")
+        .text(function(d) { return "go"; })
+        .on("click", function(d){ 
+          update(d);
+        });
+        
+
+    node.transition().duration(1000).attr("transform", function(d) {console.log(d); return "translate(" + d.y + "," + d.x + ")"; });
+
+    nodeExit = node.exit().transition().duration(1000).attr("transform",function(d){return "translate(" + source.y + ","+source.x + ")"; }).remove();
+
+    nodeExit.select("text").style("fill-opacity",0);
+
+}
+updateEdges = function(edges, source){
+  edge = svg.selectAll("path.edge").data(edges, function(d){ return d.target.id; });
+
+  edge.enter().insert("path","g")
+    .attr("class","edge")
+    .attr("d",function(d){ var parentPosition = {x: source.x0, y: source.y0};
+    return diagonal({source: parentPosition, target: parentPosition}); })
+    .style("fill","none")
+    .style("stroke","#000");
+  edge.transition().duration(1000).attr("d",diagonal);
+
+  edge.exit().transition().duration(1000)
+    .attr("d",function(d){var parentPosition = {x:source.x,y:source.y};
+    return diagonal({source: parentPosition, target: parentPosition}); }).remove();
+}
+
+
+
+/** Things to learn use api */
 const initCircle = function(){
     svg = d3.select("body").append("div").append("svg").attr("height",400).style("width","100%");
     /* canvas = d3.select("#tree")
